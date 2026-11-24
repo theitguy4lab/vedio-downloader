@@ -1,5 +1,19 @@
 import { useEffect, useState } from 'react';
-import { Download, ShieldCheck, Activity, CheckCircle2, AlertCircle, HardDrive, Cpu, Terminal } from 'lucide-react';
+import {
+  Download,
+  ShieldCheck,
+  Activity,
+  CheckCircle2,
+  AlertCircle,
+  HardDrive,
+  Cpu,
+  Terminal,
+  User as UserIcon,
+  LogOut,
+  Sparkles,
+} from 'lucide-react';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthModal } from './components/auth/AuthModal';
 
 interface HealthData {
   status: string;
@@ -9,10 +23,14 @@ interface HealthData {
   timestamp: string;
 }
 
-export default function App() {
+function DashboardContent() {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
+
+  const { user, isAuthenticated, logout } = useAuth();
 
   useEffect(() => {
     async function checkHealth() {
@@ -37,10 +55,21 @@ export default function App() {
     checkHealth();
   }, []);
 
+  const openAuth = (mode: 'login' | 'register') => {
+    setAuthModalMode(mode);
+    setAuthModalOpen(true);
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 MB';
+    const mb = bytes / (1024 * 1024);
+    return `${mb.toFixed(1)} MB`;
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
       {/* Navigation Header */}
-      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-50">
+      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="bg-emerald-500/10 p-2 rounded-xl border border-emerald-500/20 text-emerald-400">
@@ -51,32 +80,114 @@ export default function App() {
                 VideoDownloader
               </span>
               <span className="ml-2 text-xs font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                Phase 1 MVP
+                Phase 2 Auth
               </span>
             </div>
           </div>
 
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2 text-xs text-slate-400 font-mono">
+            <div className="hidden sm:flex items-center space-x-2 text-xs text-slate-400 font-mono">
               <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               <span>API Gateway Online</span>
             </div>
+
+            {/* User Auth Navigation */}
+            {isAuthenticated && user ? (
+              <div className="flex items-center space-x-3 pl-4 border-l border-slate-800">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xs font-bold">
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="hidden md:block text-left">
+                    <div className="text-xs font-semibold text-white leading-tight">{user.name}</div>
+                    <div className="text-[10px] text-slate-400 font-mono">{user.role.toUpperCase()}</div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => logout()}
+                  title="Sign Out"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => openAuth('login')}
+                  className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white transition-colors"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => openAuth('register')}
+                  className="px-3 py-1.5 text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-xl transition-colors"
+                >
+                  Create Account
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center max-w-3xl mx-auto mb-12">
+        <div className="text-center max-w-3xl mx-auto mb-10">
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium mb-4">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Secure Authentication & Role-Based Access Active</span>
+          </div>
+
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white mb-4">
-            Production-Grade Media Workspace
+            {isAuthenticated && user
+              ? `Welcome back, ${user.name}`
+              : 'Production-Grade Media Workspace'}
           </h1>
           <p className="text-slate-400 text-lg leading-relaxed">
-            Asynchronous media inspection, authorized downloads, and real-time processing engineered for reliability and high throughput.
+            {isAuthenticated
+              ? 'Your private session is authenticated. You can submit media URLs, manage downloads, and access your media library.'
+              : 'Asynchronous media inspection, authorized downloads, and real-time processing engineered for reliability and high throughput.'}
           </p>
         </div>
 
-        {/* Phase 1 Foundation Verification Card */}
+        {/* User Account / Storage Card (If Logged In) */}
+        {isAuthenticated && user && (
+          <div className="mb-8 p-6 bg-slate-900/60 border border-emerald-500/20 rounded-2xl backdrop-blur flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
+                <UserIcon className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-white">{user.name}</h3>
+                <p className="text-xs text-slate-400 font-mono">{user.email}</p>
+              </div>
+            </div>
+
+            <div className="w-full md:w-64 bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <div className="flex justify-between text-xs text-slate-400 mb-1.5">
+                <span>Storage Quota</span>
+                <span className="font-mono text-emerald-400">
+                  {formatBytes(user.storageUsageBytes)} / 2000 MB
+                </span>
+              </div>
+              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-emerald-500 h-full rounded-full transition-all duration-300"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      (user.storageUsageBytes / (2000 * 1024 * 1024)) * 100
+                    )}%`,
+                  }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Foundation & API Healthcheck Card */}
         <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 sm:p-8 backdrop-blur mb-8">
           <div className="flex items-center justify-between pb-6 mb-6 border-b border-slate-800">
             <div className="flex items-center space-x-3">
@@ -145,10 +256,10 @@ export default function App() {
           <div className="p-6 rounded-2xl bg-slate-900/30 border border-slate-800/60">
             <div className="flex items-center space-x-3 text-emerald-400 mb-3">
               <ShieldCheck className="w-5 h-5" />
-              <h3 className="font-semibold text-white">Permission-First Security</h3>
+              <h3 className="font-semibold text-white">Permission-First Security & Auth</h3>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Every submitted media URL is sanitized against SSRF and private IP ranges before inspection. Passwords use cryptographic hashing and sessions rotate via secure tokens.
+              Role-based authorization (`user`, `admin`, `super_admin`) protects every API endpoint. Passwords are hash-protected with bcrypt salt rounds and sessions rotate tokens automatically.
             </p>
           </div>
 
@@ -158,7 +269,7 @@ export default function App() {
               <h3 className="font-semibold text-white">Asynchronous Worker Queue</h3>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Downloads and transcoding are handled by dedicated workers with live Socket.IO progress streaming, guaranteeing resilience against process restarts and network stalls.
+              Downloads and transcoding are handled by dedicated background queues with live Socket.IO progress streaming, guaranteeing resilience against process restarts and network stalls.
             </p>
           </div>
         </div>
@@ -166,8 +277,23 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t border-slate-800 py-6 text-center text-xs text-slate-500">
-        VideoDownloader &bull; Built strictly to PRD specifications &bull; Phase 1 Foundation Active
+        VideoDownloader &bull; Built strictly to PRD specifications &bull; Phase 2 Authentication Active
       </footer>
+
+      {/* Login & Register Modal */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        initialMode={authModalMode}
+      />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <DashboardContent />
+    </AuthProvider>
   );
 }
