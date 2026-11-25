@@ -43,3 +43,37 @@ describe('Client Foundation & Auth State Tests', () => {
     expect(mockStorage.getItem('accessToken')).toBeNull();
   });
 });
+
+describe('Media Format Helper Tests', () => {
+  it('should correctly format byte values to human readable MB/GB', () => {
+    const formatBytes = (bytes?: number) => {
+      if (!bytes) return 'Unknown Size';
+      const mb = bytes / (1024 * 1024);
+      if (mb >= 1024) {
+        return `${(mb / 1024).toFixed(2)} GB`;
+      }
+      return `${mb.toFixed(1)} MB`;
+    };
+
+    expect(formatBytes(undefined)).toBe('Unknown Size');
+    expect(formatBytes(15728640)).toBe('15.0 MB');
+    expect(formatBytes(1073741824)).toBe('1.00 GB');
+    expect(formatBytes(2684354560)).toBe('2.50 GB');
+  });
+
+  it('should correctly detect media file extensions from URL strings', () => {
+    const isDirectMediaUrl = (url: string) => {
+      try {
+        const parsed = new URL(url);
+        return /\.(mp4|webm|mkv|mov|mp3|m4a|wav|aac|flac)$/i.test(parsed.pathname);
+      } catch {
+        return false;
+      }
+    };
+
+    expect(isDirectMediaUrl('https://example.com/video.mp4')).toBe(true);
+    expect(isDirectMediaUrl('https://example.com/audio.mp3')).toBe(true);
+    expect(isDirectMediaUrl('https://example.com/article.html')).toBe(false);
+    expect(isDirectMediaUrl('invalid-url')).toBe(false);
+  });
+});

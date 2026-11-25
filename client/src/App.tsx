@@ -14,6 +14,9 @@ import {
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AuthModal } from './components/auth/AuthModal';
+import { UrlInspector } from './components/media/UrlInspector';
+import { MediaPreviewCard } from './components/media/MediaPreviewCard';
+import { MediaInspectionResult } from './types/media';
 
 interface HealthData {
   status: string;
@@ -29,6 +32,8 @@ function DashboardContent() {
   const [error, setError] = useState<string | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
+  const [inspectedMedia, setInspectedMedia] = useState<MediaInspectionResult | null>(null);
+  const [inspecting, setInspecting] = useState(false);
 
   const { user, isAuthenticated, logout } = useAuth();
 
@@ -80,7 +85,7 @@ function DashboardContent() {
                 VideoDownloader
               </span>
               <span className="ml-2 text-xs font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                Phase 2 Auth
+                Phase 3 Inspection
               </span>
             </div>
           </div>
@@ -133,28 +138,34 @@ function DashboardContent() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center max-w-3xl mx-auto mb-10">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="text-center max-w-3xl mx-auto mb-8">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium mb-4">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Secure Authentication & Role-Based Access Active</span>
+            <span>SSRF-Safe Media Inspection Engine Active</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white mb-4">
-            {isAuthenticated && user
-              ? `Welcome back, ${user.name}`
-              : 'Production-Grade Media Workspace'}
+            Inspect & Download Media Safely
           </h1>
           <p className="text-slate-400 text-lg leading-relaxed">
-            {isAuthenticated
-              ? 'Your private session is authenticated. You can submit media URLs, manage downloads, and access your media library.'
-              : 'Asynchronous media inspection, authorized downloads, and real-time processing engineered for reliability and high throughput.'}
+            Submit an authorized media URL to extract metadata, inspect stream properties, and select output formats.
           </p>
         </div>
 
+        {/* URL Inspection Component */}
+        <UrlInspector
+          onInspected={(res) => setInspectedMedia(res)}
+          loading={inspecting}
+          setLoading={setInspecting}
+        />
+
+        {/* Media Preview & Format Selector Card */}
+        {inspectedMedia && <MediaPreviewCard media={inspectedMedia} />}
+
         {/* User Account / Storage Card (If Logged In) */}
         {isAuthenticated && user && (
-          <div className="mb-8 p-6 bg-slate-900/60 border border-emerald-500/20 rounded-2xl backdrop-blur flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="mt-10 mb-8 p-6 bg-slate-900/60 border border-emerald-500/20 rounded-2xl backdrop-blur flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="flex items-center space-x-4">
               <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
                 <UserIcon className="w-6 h-6" />
@@ -188,7 +199,7 @@ function DashboardContent() {
         )}
 
         {/* Foundation & API Healthcheck Card */}
-        <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 sm:p-8 backdrop-blur mb-8">
+        <div className="mt-10 bg-slate-900/40 border border-slate-800 rounded-2xl p-6 sm:p-8 backdrop-blur mb-8">
           <div className="flex items-center justify-between pb-6 mb-6 border-b border-slate-800">
             <div className="flex items-center space-x-3">
               <Activity className="w-5 h-5 text-emerald-400" />
@@ -256,10 +267,10 @@ function DashboardContent() {
           <div className="p-6 rounded-2xl bg-slate-900/30 border border-slate-800/60">
             <div className="flex items-center space-x-3 text-emerald-400 mb-3">
               <ShieldCheck className="w-5 h-5" />
-              <h3 className="font-semibold text-white">Permission-First Security & Auth</h3>
+              <h3 className="font-semibold text-white">SSRF Defense & Inspection</h3>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Role-based authorization (`user`, `admin`, `super_admin`) protects every API endpoint. Passwords are hash-protected with bcrypt salt rounds and sessions rotate tokens automatically.
+              Every submitted media URL is filtered through pre-request DNS resolution to block private IP spaces and internal cloud metadata before inspecting content length and format headers.
             </p>
           </div>
 
@@ -269,7 +280,7 @@ function DashboardContent() {
               <h3 className="font-semibold text-white">Asynchronous Worker Queue</h3>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Downloads and transcoding are handled by dedicated background queues with live Socket.IO progress streaming, guaranteeing resilience against process restarts and network stalls.
+              Selected formats are submitted to background worker queues with live Socket.IO progress streaming, guaranteeing resilience against process restarts and network stalls.
             </p>
           </div>
         </div>
@@ -277,7 +288,7 @@ function DashboardContent() {
 
       {/* Footer */}
       <footer className="border-t border-slate-800 py-6 text-center text-xs text-slate-500">
-        VideoDownloader &bull; Built strictly to PRD specifications &bull; Phase 2 Authentication Active
+        VideoDownloader &bull; Built strictly to PRD specifications &bull; Phase 3 Media Inspection Active
       </footer>
 
       {/* Login & Register Modal */}
