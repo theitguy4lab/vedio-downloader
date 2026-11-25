@@ -1,27 +1,14 @@
 import http from 'http';
-import { Server as SocketIOServer } from 'socket.io';
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
+import { SocketService } from './services/socket.service.js';
 
 const app = createApp();
 const server = http.createServer(app);
 
-// Initialize Socket.IO with CORS
-export const io = new SocketIOServer(server, {
-  cors: {
-    origin: env.CLIENT_URL,
-    credentials: true,
-  },
-});
-
-io.on('connection', (socket) => {
-  console.log(`[Socket.IO] Client connected: ${socket.id}`);
-
-  socket.on('disconnect', () => {
-    console.log(`[Socket.IO] Client disconnected: ${socket.id}`);
-  });
-});
+// Initialize Socket.IO with authentication middleware
+export const io = SocketService.init(server);
 
 async function bootstrap() {
   await connectDatabase();
@@ -30,6 +17,7 @@ async function bootstrap() {
     console.log(`[Server] VideoDownloader running on http://localhost:${env.PORT}`);
     console.log(`[Server] Environment: ${env.NODE_ENV}`);
     console.log(`[Server] Healthcheck: http://localhost:${env.PORT}/api/v1/health`);
+    console.log(`[Server] WebSocket Server listening for connections`);
   });
 }
 

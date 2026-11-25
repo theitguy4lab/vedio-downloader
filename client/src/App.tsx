@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   Download,
-  ShieldCheck,
   Activity,
   CheckCircle2,
   AlertCircle,
@@ -11,8 +10,10 @@ import {
   User as UserIcon,
   LogOut,
   Sparkles,
+  Radio,
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SocketProvider, useSocket } from './context/SocketContext';
 import { AuthModal } from './components/auth/AuthModal';
 import { UrlInspector } from './components/media/UrlInspector';
 import { MediaPreviewCard } from './components/media/MediaPreviewCard';
@@ -39,6 +40,7 @@ function DashboardContent() {
   const [downloadRefreshTrigger, setDownloadRefreshTrigger] = useState(0);
 
   const { user, isAuthenticated, logout } = useAuth();
+  const { connected: socketConnected } = useSocket();
 
   useEffect(() => {
     async function checkHealth() {
@@ -107,7 +109,6 @@ function DashboardContent() {
         throw new Error(data.message || 'Failed to enqueue download job');
       }
 
-      // Refresh download list and clear preview
       setDownloadRefreshTrigger((prev) => prev + 1);
       setInspectedMedia(null);
     } catch (err: any) {
@@ -137,7 +138,7 @@ function DashboardContent() {
                 VideoDownloader
               </span>
               <span className="ml-2 text-xs font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                Phase 4 Queue
+                Phase 5 Real-Time
               </span>
             </div>
           </div>
@@ -145,8 +146,21 @@ function DashboardContent() {
           <div className="flex items-center space-x-4">
             <div className="hidden sm:flex items-center space-x-2 text-xs text-slate-400 font-mono">
               <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>Worker Engine Active</span>
+              <span>API Gateway Online</span>
             </div>
+
+            {isAuthenticated && (
+              <div className="hidden md:flex items-center space-x-1.5 text-xs font-mono px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800">
+                <Radio
+                  className={`w-3.5 h-3.5 ${
+                    socketConnected ? 'text-emerald-400 animate-pulse' : 'text-slate-500'
+                  }`}
+                />
+                <span className={socketConnected ? 'text-emerald-400' : 'text-slate-500'}>
+                  {socketConnected ? 'WebSocket Live' : 'Connecting...'}
+                </span>
+              </div>
+            )}
 
             {/* User Auth Navigation */}
             {isAuthenticated && user ? (
@@ -194,14 +208,14 @@ function DashboardContent() {
         <div className="text-center max-w-3xl mx-auto mb-8">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium mb-4">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Asynchronous Background Queue & Worker Operational</span>
+            <span>Authenticated Socket.IO WebSocket Streaming Active</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white mb-4">
-            Inspect & Download Media Safely
+            Inspect & Download Media in Real-Time
           </h1>
           <p className="text-slate-400 text-lg leading-relaxed">
-            Submit an authorized media URL to extract metadata, select formats, and dispatch to the background worker queue.
+            Instant progress tracking, speed calculation (MB/s), and ETA updates pushed directly to your browser over private WebSockets.
           </p>
         </div>
 
@@ -221,7 +235,7 @@ function DashboardContent() {
           />
         )}
 
-        {/* Active & Recent Downloads Tracker */}
+        {/* Active & Recent Downloads Tracker with Real-Time Push */}
         {isAuthenticated && (
           <DownloadManager refreshTrigger={downloadRefreshTrigger} />
         )}
@@ -307,10 +321,8 @@ function DashboardContent() {
             </div>
 
             <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4">
-              <div className="flex items-center space-x-3 text-slate-400 mb-2">
-                <Terminal className="w-4 h-4 text-emerald-400" />
-                <span className="text-xs font-medium uppercase tracking-wider">API Version</span>
-              </div>
+              <Terminal className="w-4 h-4 text-emerald-400" />
+              <span className="text-xs font-medium uppercase tracking-wider">API Version</span>
               <div className="text-lg font-mono font-semibold text-white">
                 {health ? `v${health.version}` : '---'}
               </div>
@@ -324,34 +336,11 @@ function DashboardContent() {
             </div>
           )}
         </div>
-
-        {/* Feature Architecture Matrix */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="p-6 rounded-2xl bg-slate-900/30 border border-slate-800/60">
-            <div className="flex items-center space-x-3 text-emerald-400 mb-3">
-              <ShieldCheck className="w-5 h-5" />
-              <h3 className="font-semibold text-white">SSRF Defense & Inspection</h3>
-            </div>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Every submitted media URL is filtered through pre-request DNS resolution to block private IP spaces and internal cloud metadata before inspecting stream properties.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-2xl bg-slate-900/30 border border-slate-800/60">
-            <div className="flex items-center space-x-3 text-emerald-400 mb-3">
-              <Activity className="w-5 h-5" />
-              <h3 className="font-semibold text-white">Asynchronous Worker Queue</h3>
-            </div>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Downloads are processed by decoupled workers with live progress tracking, concurrency limits (3 simultaneous), and automatic temp file promotion outside MongoDB.
-            </p>
-          </div>
-        </div>
       </main>
 
       {/* Footer */}
       <footer className="border-t border-slate-800 py-6 text-center text-xs text-slate-500">
-        VideoDownloader &bull; Built strictly to PRD specifications &bull; Phase 4 Asynchronous Download Active
+        VideoDownloader &bull; Built strictly to PRD specifications &bull; Phase 5 Real-Time Engine Active
       </footer>
 
       {/* Login & Register Modal */}
@@ -367,7 +356,9 @@ function DashboardContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <DashboardContent />
+      <SocketProvider>
+        <DashboardContent />
+      </SocketProvider>
     </AuthProvider>
   );
 }

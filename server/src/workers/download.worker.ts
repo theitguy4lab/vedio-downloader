@@ -5,6 +5,7 @@ import { DownloadJob, IDownloadJobDocument } from '../models/downloadJob.model.j
 import { MediaFile } from '../models/mediaFile.model.js';
 import { User } from '../models/user.model.js';
 import { StorageService } from '../services/storage.service.js';
+import { SocketService } from '../services/socket.service.js';
 import { validateSafeUrl } from '../utils/urlValidator.js';
 import { env } from '../config/env.js';
 
@@ -14,6 +15,8 @@ export class DownloadWorker {
     abortSignal?: AbortSignal
   ): Promise<void> {
     const tempFilePath = StorageService.getTempFilePath(job.selectedFormat.container);
+    const userId = job.userId.toString();
+    const jobId = job._id.toString();
 
     try {
       // 1. Transition state: processing -> downloading
@@ -26,6 +29,12 @@ export class DownloadWorker {
         eta: 0,
       };
       await job.save();
+
+      // Emit download:started event
+      SocketService.emitToUser(userId, 'download:started', {
+        jobId,
+        status: 'downloading',
+      });
 
       // 2. Validate URL safety before connecting
       const validated = await validateSafeUrl(job.originalUrl);
@@ -69,8 +78,8 @@ export class DownloadWorker {
         }
 
         const now = Date.now();
-        // Update speed and progress metrics every 500ms
-        if (now - lastDbUpdate >= 500) {
+        // Update speed and progress metrics every 400ms
+        if (now - lastDbUpdate >= 400) {
           const timeDiffSec = (now - lastTime) / 1000;
           const bytesDiff = downloadedBytes - lastBytes;
           const currentSpeed = timeDiffSec > 0 ? Math.round(bytesDiff / timeDiffSec) : 0;
@@ -90,6 +99,17 @@ export class DownloadWorker {
           // Non-blocking save to MongoDB
           job.save().catch(() => {});
 
+          // Emit real-time progress via WebSocket
+          SocketService.emitToUser(userId, 'download:progress', {
+            jobId,
+            status: 'downloading',
+            percentage,
+            downloadedBytes,
+            totalBytes,
+            speed: currentSpeed,
+            eta,
+          });
+
           lastTime = now;
           lastBytes = downloadedBytes;
           lastDbUpdate = now;
@@ -108,7 +128,7 @@ export class DownloadWorker {
       // 6. Promote temp file to permanent user storage
       const promoted = await StorageService.promoteTempToMedia(
         tempFilePath,
-        job.userId.toString(),
+        userId,
         job.selectedFormat.container
       );
 
@@ -140,6 +160,14 @@ export class DownloadWorker {
         eta: 0,
       };
       await job.save();
+
+      // Emit download:completed event
+      SocketService.emitToUser(userId, 'download:completed', {
+        jobId,
+        status: 'completed',
+        fileId: mediaFile._id.toString(),
+        fileSizeBytes: promoted.fileSizeBytes,
+      });
     } catch (err: any) {
       // Clean up temp file on failure
       await StorageService.deleteFile(tempFilePath);
@@ -150,12 +178,25 @@ export class DownloadWorker {
         return;
       }
 
+      const errorCode = err.name === 'AbortError' ? 'DOWNLOAD_CANCELLED' : 'DOWNLOAD_FAILED';
+      const errorMessage = err.message || 'An error occurred during download processing';
+
       job.status = 'failed';
       job.error = {
-        code: err.name === 'AbortError' ? 'DOWNLOAD_CANCELLED' : 'DOWNLOAD_FAILED',
-        message: err.message || 'An error occurred during download processing',
+        code: errorCode,
+        message: errorMessage,
       };
       await job.save();
+
+      // Emit download:failed event
+      SocketService.emitToUser(userId, 'download:failed', {
+        jobId,
+        status: 'failed',
+        error: {
+          code: errorCode,
+          message: errorMessage,
+        },
+      });
     }
   }
 }

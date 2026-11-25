@@ -1,5 +1,6 @@
 import { DownloadJob, IDownloadJobDocument } from '../models/downloadJob.model.js';
 import { DownloadWorker } from '../workers/download.worker.js';
+import { SocketService } from './socket.service.js';
 import { AppError } from '../middlewares/errorHandler.js';
 
 export class QueueService {
@@ -19,6 +20,12 @@ export class QueueService {
 
     job.status = 'queued';
     await job.save();
+
+    // Emit real-time download:queued event
+    SocketService.emitToUser(job.userId.toString(), 'download:queued', {
+      jobId: job._id.toString(),
+      status: 'queued',
+    });
 
     this.waitingQueue.push(jobId);
     this.processNext();
@@ -50,6 +57,12 @@ export class QueueService {
     job.status = 'cancelled';
     await job.save();
 
+    // Emit real-time download:cancelled event
+    SocketService.emitToUser(userId, 'download:cancelled', {
+      jobId: job._id.toString(),
+      status: 'cancelled',
+    });
+
     return job;
   }
 
@@ -77,6 +90,12 @@ export class QueueService {
       eta: 0,
     };
     await job.save();
+
+    // Emit real-time download:queued event
+    SocketService.emitToUser(userId, 'download:queued', {
+      jobId: job._id.toString(),
+      status: 'queued',
+    });
 
     this.waitingQueue.push(jobId);
     this.processNext();

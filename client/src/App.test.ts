@@ -78,7 +78,7 @@ describe('Media Format Helper Tests', () => {
   });
 });
 
-describe('Download Progress & Metrics Helper Tests', () => {
+describe('Download Progress & Real-Time Event Tests', () => {
   it('should format transfer speed in KB/s and MB/s correctly', () => {
     const formatSpeed = (bytesPerSec?: number) => {
       if (!bytesPerSec || bytesPerSec === 0) return '0 KB/s';
@@ -103,5 +103,51 @@ describe('Download Progress & Metrics Helper Tests', () => {
     expect(calculateEta(10000000, 5000000, 1000000)).toBe(5);
     expect(calculateEta(10000000, 10000000, 1000000)).toBe(0);
     expect(calculateEta(10000000, 2000000, 0)).toBe(0);
+  });
+
+  it('should apply real-time progress update event to active job state', () => {
+    const initialJobs = [
+      {
+        _id: 'job-1',
+        status: 'queued',
+        progress: {
+          percentage: 0,
+          downloadedBytes: 0,
+          totalBytes: 1000000,
+          speed: 0,
+          eta: 0,
+        },
+      },
+    ];
+
+    const socketProgressPayload = {
+      jobId: 'job-1',
+      percentage: 65,
+      downloadedBytes: 650000,
+      totalBytes: 1000000,
+      speed: 125000,
+      eta: 3,
+    };
+
+    const updatedJobs = initialJobs.map((job) => {
+      if (job._id === socketProgressPayload.jobId) {
+        return {
+          ...job,
+          status: 'downloading',
+          progress: {
+            percentage: socketProgressPayload.percentage,
+            downloadedBytes: socketProgressPayload.downloadedBytes,
+            totalBytes: socketProgressPayload.totalBytes,
+            speed: socketProgressPayload.speed,
+            eta: socketProgressPayload.eta,
+          },
+        };
+      }
+      return job;
+    });
+
+    expect(updatedJobs[0].status).toBe('downloading');
+    expect(updatedJobs[0].progress.percentage).toBe(65);
+    expect(updatedJobs[0].progress.eta).toBe(3);
   });
 });
