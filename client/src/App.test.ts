@@ -77,3 +77,31 @@ describe('Media Format Helper Tests', () => {
     expect(isDirectMediaUrl('invalid-url')).toBe(false);
   });
 });
+
+describe('Download Progress & Metrics Helper Tests', () => {
+  it('should format transfer speed in KB/s and MB/s correctly', () => {
+    const formatSpeed = (bytesPerSec?: number) => {
+      if (!bytesPerSec || bytesPerSec === 0) return '0 KB/s';
+      const mbps = bytesPerSec / (1024 * 1024);
+      if (mbps >= 1) return `${mbps.toFixed(1)} MB/s`;
+      return `${(bytesPerSec / 1024).toFixed(0)} KB/s`;
+    };
+
+    expect(formatSpeed(0)).toBe('0 KB/s');
+    expect(formatSpeed(512000)).toBe('500 KB/s');
+    expect(formatSpeed(2097152)).toBe('2.0 MB/s');
+    expect(formatSpeed(15728640)).toBe('15.0 MB/s');
+  });
+
+  it('should calculate ETA seconds remaining correctly', () => {
+    const calculateEta = (totalBytes: number, downloadedBytes: number, speedBytesPerSec: number) => {
+      if (speedBytesPerSec <= 0) return 0;
+      const remaining = Math.max(0, totalBytes - downloadedBytes);
+      return Math.round(remaining / speedBytesPerSec);
+    };
+
+    expect(calculateEta(10000000, 5000000, 1000000)).toBe(5);
+    expect(calculateEta(10000000, 10000000, 1000000)).toBe(0);
+    expect(calculateEta(10000000, 2000000, 0)).toBe(0);
+  });
+});

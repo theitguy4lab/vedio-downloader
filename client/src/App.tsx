@@ -16,7 +16,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { AuthModal } from './components/auth/AuthModal';
 import { UrlInspector } from './components/media/UrlInspector';
 import { MediaPreviewCard } from './components/media/MediaPreviewCard';
-import { MediaInspectionResult } from './types/media';
+import { DownloadManager } from './components/downloads/DownloadManager';
+import { MediaInspectionResult, MediaFormatOption } from './types/media';
 
 interface HealthData {
   status: string;
@@ -34,6 +35,8 @@ function DashboardContent() {
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
   const [inspectedMedia, setInspectedMedia] = useState<MediaInspectionResult | null>(null);
   const [inspecting, setInspecting] = useState(false);
+  const [enqueuing, setEnqueuing] = useState(false);
+  const [downloadRefreshTrigger, setDownloadRefreshTrigger] = useState(0);
 
   const { user, isAuthenticated, logout } = useAuth();
 
@@ -65,6 +68,55 @@ function DashboardContent() {
     setAuthModalOpen(true);
   };
 
+  const handleEnqueueJob = async (format: MediaFormatOption) => {
+    if (!isAuthenticated) {
+      openAuth('login');
+      return;
+    }
+
+    if (!inspectedMedia) return;
+
+    setEnqueuing(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const res = await fetch('/api/v1/downloads', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          url: inspectedMedia.url,
+          format: {
+            container: format.container,
+            quality: format.quality,
+            resolution: format.resolution,
+            audioOnly: format.audioOnly,
+          },
+          mediaInfo: {
+            title: inspectedMedia.title,
+            thumbnail: inspectedMedia.thumbnail,
+            duration: inspectedMedia.durationSeconds,
+            creator: inspectedMedia.creator,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to enqueue download job');
+      }
+
+      // Refresh download list and clear preview
+      setDownloadRefreshTrigger((prev) => prev + 1);
+      setInspectedMedia(null);
+    } catch (err: any) {
+      alert(`Error enqueuing download: ${err.message}`);
+    } finally {
+      setEnqueuing(false);
+    }
+  };
+
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 MB';
     const mb = bytes / (1024 * 1024);
@@ -85,7 +137,7 @@ function DashboardContent() {
                 VideoDownloader
               </span>
               <span className="ml-2 text-xs font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                Phase 3 Inspection
+                Phase 4 Queue
               </span>
             </div>
           </div>
@@ -93,7 +145,7 @@ function DashboardContent() {
           <div className="flex items-center space-x-4">
             <div className="hidden sm:flex items-center space-x-2 text-xs text-slate-400 font-mono">
               <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>API Gateway Online</span>
+              <span>Worker Engine Active</span>
             </div>
 
             {/* User Auth Navigation */}
@@ -142,14 +194,14 @@ function DashboardContent() {
         <div className="text-center max-w-3xl mx-auto mb-8">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium mb-4">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>SSRF-Safe Media Inspection Engine Active</span>
+            <span>Asynchronous Background Queue & Worker Operational</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white mb-4">
             Inspect & Download Media Safely
           </h1>
           <p className="text-slate-400 text-lg leading-relaxed">
-            Submit an authorized media URL to extract metadata, inspect stream properties, and select output formats.
+            Submit an authorized media URL to extract metadata, select formats, and dispatch to the background worker queue.
           </p>
         </div>
 
@@ -161,7 +213,18 @@ function DashboardContent() {
         />
 
         {/* Media Preview & Format Selector Card */}
-        {inspectedMedia && <MediaPreviewCard media={inspectedMedia} />}
+        {inspectedMedia && (
+          <MediaPreviewCard
+            media={inspectedMedia}
+            onEnqueueJob={handleEnqueueJob}
+            enqueuing={enqueuing}
+          />
+        )}
+
+        {/* Active & Recent Downloads Tracker */}
+        {isAuthenticated && (
+          <DownloadManager refreshTrigger={downloadRefreshTrigger} />
+        )}
 
         {/* User Account / Storage Card (If Logged In) */}
         {isAuthenticated && user && (
@@ -270,7 +333,7 @@ function DashboardContent() {
               <h3 className="font-semibold text-white">SSRF Defense & Inspection</h3>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Every submitted media URL is filtered through pre-request DNS resolution to block private IP spaces and internal cloud metadata before inspecting content length and format headers.
+              Every submitted media URL is filtered through pre-request DNS resolution to block private IP spaces and internal cloud metadata before inspecting stream properties.
             </p>
           </div>
 
@@ -280,7 +343,7 @@ function DashboardContent() {
               <h3 className="font-semibold text-white">Asynchronous Worker Queue</h3>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Selected formats are submitted to background worker queues with live Socket.IO progress streaming, guaranteeing resilience against process restarts and network stalls.
+              Downloads are processed by decoupled workers with live progress tracking, concurrency limits (3 simultaneous), and automatic temp file promotion outside MongoDB.
             </p>
           </div>
         </div>
@@ -288,7 +351,7 @@ function DashboardContent() {
 
       {/* Footer */}
       <footer className="border-t border-slate-800 py-6 text-center text-xs text-slate-500">
-        VideoDownloader &bull; Built strictly to PRD specifications &bull; Phase 3 Media Inspection Active
+        VideoDownloader &bull; Built strictly to PRD specifications &bull; Phase 4 Asynchronous Download Active
       </footer>
 
       {/* Login & Register Modal */}
